@@ -77,7 +77,6 @@
     "fs-extra": "^8.1.0",
     "ink-docstrap": "^1.2.1",
     "istanbul": "^1.0.0-alpha.2",
-    "jsdoc": "^3.6.7",
     "mocha": "^6.0.0",
     "moment": "^2.14.1",
     "typescript": "5.3.3",
