@@ -1,9 +1,6 @@
 import {defaults, forOwn, includes, isEmpty, map, mapValues, omit, omitBy, snakeCase, values} from 'lodash';
 import util from 'util';
-import path from 'path';
 import stream from 'stream';
-import { File } from 'buffer';
-import {createReadStream} from 'fs';
 import * as requestHandler from './request_handler.js';
 import {HTTP_VERBS, KINDS, MAX_LISTING_ITEMS, MODULE_NAME, USER_KEYS, SUBREDDIT_KEYS, VERSION, MIME_TYPES, SUBMISSION_ID_REGEX, MEDIA_TYPES, PLACEHOLDER_REGEX} from './constants.js';
 import * as errors from './errors.js';
@@ -21,11 +18,8 @@ import * as objects from './objects/index.js';
 /* eslint-disable-next-line import/no-unresolved */
 import MediaFile, {MediaImg, MediaVideo, MediaGif} from './objects/MediaFile';
 
-const fetch = global.fetch;
-const Blob = global.Blob;
 const FormData = isBrowser ? global.FormData : require('form-data');
 const WebSocket = isBrowser ? global.WebSocket : require('ws');
-
 const api_type = 'json';
 
 /**

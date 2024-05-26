@@ -34,7 +34,7 @@ export const KINDS = {
 };
 export const USERNAME_REGEX = /^[\w-]{1,20}$/;
 export const SUBMISSION_ID_REGEX = /comments\/(.+?)\//;
-export const PLACEHOLDER_REGEX = /{(\w+)}/g;
+export const PLACEHOLDER_REGEX = /{([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})}/g;
 export const MODERATOR_PERMISSIONS = ['wiki', 'posts', 'access', 'mail', 'config', 'flair'];
 export const LIVETHREAD_PERMISSIONS = ['update', 'edit', 'manage'];
 export const HTTP_VERBS = ['delete', 'get', 'head', 'patch', 'post', 'put'];
