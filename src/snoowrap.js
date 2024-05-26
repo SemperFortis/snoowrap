@@ -2,6 +2,7 @@ import {defaults, forOwn, includes, isEmpty, map, mapValues, omit, omitBy, snake
 import util from 'util';
 import path from 'path';
 import stream from 'stream';
+import { File } from 'buffer';
 import {createReadStream} from 'fs';
 import * as requestHandler from './request_handler.js';
 import {HTTP_VERBS, KINDS, MAX_LISTING_ITEMS, MODULE_NAME, USER_KEYS, SUBREDDIT_KEYS, VERSION, MIME_TYPES, SUBMISSION_ID_REGEX, MEDIA_TYPES, PLACEHOLDER_REGEX} from './constants.js';
@@ -1295,24 +1296,21 @@ const snoowrap = class snoowrap {
    * // => MediaFile
    */
   async uploadMedia ({file, name, type, caption, outboundUrl, validateOnly = false}) {
-    if (isBrowser && typeof fetch === 'undefined') {
-      throw new errors.InvalidMethodCallError('Your browser doesn\'t support \'no-cors\' requests');
+    // Check that file is of type File
+    if (!(file instanceof File)) {
+      throw new errors.InvalidMethodCallError('Uploaded file must be a File');
     }
-    if (isBrowser && typeof file === 'string') {
-      throw new errors.InvalidMethodCallError('Uploaded file cannot be a string on browser');
-    }
-    // `File` is a specific kind of `Blob`, so one check for `Blob` is enough
-    if (typeof file !== 'string' && !(file instanceof stream.Readable) && !(typeof Blob !== 'undefined' && file instanceof Blob)) {
-      throw new errors.InvalidMethodCallError('Uploaded file must either be a string, a ReadableStream, a Blob or a File');
-    }
-    const parsedFile = typeof file === 'string' ? createReadStream(file) : file;
-    const fileName = typeof file === 'string' ? path.basename(file) : file.name || name;
+
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    const fileName = file.name || name;
+
     if (!fileName) {
       requiredArg('name');
     }
+
     let fileExt = path.extname(fileName) || 'jpeg'; // Default to JPEG
     fileExt = fileExt.replace('.', '');
-    const mimetype = typeof Blob !== 'undefined' && file instanceof Blob && file.type ? file.type : MIME_TYPES[fileExt] || '';
+    const mimetype = file.type || MIME_TYPES[fileExt] || '';
     const expectedMimePrefix = MEDIA_TYPES[type];
     if (expectedMimePrefix && mimetype.split('/')[0] !== expectedMimePrefix) {
       throw new errors.InvalidMethodCallError(`Expected a mimetype for the file '${fileName}' starting with '${expectedMimePrefix}' but got '${mimetype}'`);
@@ -1338,40 +1336,31 @@ const snoowrap = class snoowrap {
     };
     const formdata = new FormData();
     uploadResponse.args.fields.forEach(item => formdata.append(item.name, item.value));
-    formdata.append('file', parsedFile, fileName);
+    formdata.append('file', fileBuffer, fileName);
+    
     let res;
-    if (isBrowser) {
-      res = await fetch(uploadURL, {
-        method: 'post',
-        mode: 'no-cors',
-        body: formdata
+
+    const contentLength = await new Promise((resolve, reject) => {
+      formdata.getLength((err, length) => {
+        if (err) {
+          reject(err);
+        }
+        resolve(length);
       });
-      this._debug('Response:', res);
-      /**
-       * Todo: Since the response of 'no-cors' requests cannot contain the status code, the uploaded file should be validated
-       * by setting `fileInfo.fileUrl` as the `src` attribute of an img/video element and listening to the load event.
-       */
-    } else {
-      const contentLength = await new Promise((resolve, reject) => {
-        formdata.getLength((err, length) => {
-          if (err) {
-            reject(err);
-          }
-          resolve(length);
-        });
-      });
-      res = await this.rawRequest({
-        url: uploadURL,
-        method: 'post',
-        headers: {
-          'user-agent': this.userAgent,
-          'content-type': `multipart/form-data; boundary=${formdata._boundary}`,
-          'content-length': contentLength
-        },
-        data: formdata,
-        _r: this
-      });
-    }
+    });
+
+    res = await this.rawRequest({
+      url: uploadURL,
+      method: 'post',
+      headers: {
+        'user-agent': this.userAgent,
+        'content-type': `multipart/form-data; boundary=${formdata._boundary}`,
+        'content-length': contentLength
+      },
+      data: formdata,
+      _r: this
+    });
+    
     let media;
     switch (type) {
       case 'img':
