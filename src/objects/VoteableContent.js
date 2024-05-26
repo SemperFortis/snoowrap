@@ -1,6 +1,6 @@
-import {handleJsonErrors} from '../helpers.js';
 import ReplyableContent from './ReplyableContent.js';
-
+import {PLACEHOLDER_REGEX} from '../constants.js';
+import MediaFile from './MediaFile';
 const api_type = 'json';
 
 /**
@@ -109,14 +109,49 @@ const VoteableContent = class VoteableContent extends ReplyableContent {
    * @returns {Promise} A Promise that fulfills when this request is complete.
    * @example r.getComment('coip909').edit('Blah blah blah this is new updated text')
    */
-  async edit (updatedText) {
-    const res = await this._post({
+  async edit ({ text, inlineMedia = {} }) {
+    const placeholders = Object.keys(inlineMedia);
+
+    // Validate inline media
+    await Promise.all(placeholders.map(async p => {
+      if (!text.includes(`{${p}}`)) {
+        return;
+      }
+      if (!(inlineMedia[p] instanceof MediaFile)) {
+        await this._r.uploadMedia({
+          ...inlineMedia[p],
+          validateOnly: true
+        });
+      }
+    }));
+
+    // Upload if necessary
+    await Promise.all(placeholders.map(async p => {
+      if (!text.includes(`{${p}}`)) {
+        return;
+      }
+      if (!(inlineMedia[p] instanceof MediaFile)) {
+        inlineMedia[p] = await this._r.uploadMedia({
+          ...inlineMedia[p]
+        });
+      }
+    }));
+
+    const body = text.replace(PLACEHOLDER_REGEX, (_m, g1) => inlineMedia[g1]);
+    const richtext_json = await this._r.convertToFancypants(body);
+
+    if (richtext_json) {
+      text = null;
+    }
+
+    await this._post({
       url: 'api/editusertext',
-      form: {api_type, text: updatedText, thing_id: this.name}
+      form: {api_type, text, richtext_json: JSON.stringify(richtext_json), thing_id: this.name}
     });
-    handleJsonErrors(res);
+
     return this;
   }
+
   /**
    * @summary Gives reddit gold to the author of this Comment or Submission.
    * @returns {Promise} A Promise that fullfills with this Comment/Submission when this request is complete
