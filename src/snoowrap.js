@@ -1295,25 +1295,19 @@ const snoowrap = class snoowrap {
    * }).then(console.log)
    * // => MediaFile
    */
-  async uploadMedia ({file, name, type, caption, outboundUrl, validateOnly = false}) {
+  async uploadMedia ({file, name, mimeType, type, caption, outboundUrl, validateOnly = false}) {
     // Check that file is of type File
-    if (!(file instanceof File)) {
-      throw new errors.InvalidMethodCallError('Uploaded file must be a File');
+    if (!(file instanceof Buffer)) {
+      throw new errors.InvalidMethodCallError('Uploaded file must be a Buffer');
     }
 
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
-    const fileName = file.name || name;
-
-    if (!fileName) {
+    if (!name) {
       requiredArg('name');
     }
 
-    let fileExt = path.extname(fileName) || 'jpeg'; // Default to JPEG
-    fileExt = fileExt.replace('.', '');
-    const mimetype = file.type || MIME_TYPES[fileExt] || '';
     const expectedMimePrefix = MEDIA_TYPES[type];
-    if (expectedMimePrefix && mimetype.split('/')[0] !== expectedMimePrefix) {
-      throw new errors.InvalidMethodCallError(`Expected a mimetype for the file '${fileName}' starting with '${expectedMimePrefix}' but got '${mimetype}'`);
+    if (expectedMimePrefix && mimeType.split('/')[0] !== expectedMimePrefix) {
+      throw new errors.InvalidMethodCallError(`Expected a mimetype for the file '${name}' starting with '${expectedMimePrefix}' but got '${mimeType}'`);
     }
     // Todo: The file size should be checked
     if (validateOnly) {
@@ -1322,8 +1316,8 @@ const snoowrap = class snoowrap {
     const uploadResponse = await this._post({
       url: 'api/media/asset.json',
       form: {
-        filepath: fileName,
-        mimetype
+        filepath: name,
+        mimetype: mimeType
       }
     });
     const uploadURL = 'https:' + uploadResponse.args.action;
@@ -1336,7 +1330,7 @@ const snoowrap = class snoowrap {
     };
     const formdata = new FormData();
     uploadResponse.args.fields.forEach(item => formdata.append(item.name, item.value));
-    formdata.append('file', fileBuffer, fileName);
+    formdata.append('file', file, name);
     
     let res;
 
